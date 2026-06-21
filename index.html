@@ -4,52 +4,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文字搜索海報生成器</title>
+    <title>聖言搜索海報生成器 (顯示答案統計)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @media print {
-            .no-print { display: none !important; }
-            body { background-color: white; padding: 0; }
-            .poster-container { box-shadow: none !important; border: none !important; width: 100% !important; margin: 0 !important; }
-            @page { size: A4 portrait; margin: 10mm; }
-        }
-        .grid-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; font-family: monospace; font-weight: 900; user-select: none; border: 1px solid #e5e7eb; cursor: pointer; transition: all 0.2s; }
+        @media print { .no-print { display: none !important; } .poster-container { box-shadow: none !important; border: none !important; } }
+        .grid-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; font-family: monospace; font-weight: 900; user-select: none; border: 1px solid #e5e7eb; }
         .target { color: #dc2626 !important; background-color: #fef2f2 !important; text-decoration: underline !important; }
-        .found { background-color: #dcfce7 !important; color: #166534 !important; font-weight: bold; border-color: #4ade80 !important; }
     </style>
 </head>
 <body class="bg-gray-100 p-4">
     <div class="max-w-6xl mx-auto flex flex-col md:flex-row gap-6">
+        <!-- 控制面板 -->
         <div class="no-print w-full md:w-80 bg-white p-6 rounded-xl shadow-lg h-fit">
-            <h2 class="text-xl font-bold mb-4">⚙️ 文字搜索設定</h2>
+            <h2 class="text-xl font-bold mb-4">⚙️ 聖言搜索設定</h2>
+            <textarea id="wordInput" class="w-full h-40 p-2 border rounded text-sm mb-2" placeholder="請輸入答案 (空格或換行分隔)"></textarea>
+            <!-- 答案數量顯示區域 -->
             <div id="wordCount" class="text-sm text-gray-600 mb-4 font-medium">已輸入詞彙總數: 0</div>
             
-            <div id="inputGroup">
-                <textarea id="wordInput" class="w-full h-40 p-2 border rounded text-sm mb-2" placeholder="請輸入答案 (空格或換行分隔)"></textarea>
-                <button id="btnGenerate" class="w-full bg-blue-600 text-white py-2 rounded mb-2 font-bold hover:bg-blue-700">生成海報</button>
-            </div>
-
-            <div id="targetBar" class="hidden mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg text-center">
-                <div class="text-xs text-blue-500 font-bold uppercase">當前搜尋目標</div>
-                <div id="currentTarget" class="text-3xl font-bold text-blue-800 my-2">--</div>
-                <div id="progress" class="text-sm text-blue-600">進度: 0 / 0</div>
-            </div>
-
+            <button id="btnGenerate" class="w-full bg-blue-600 text-white py-2 rounded mb-2 font-bold hover:bg-blue-700">生成海報</button>
             <div class="flex gap-2 mb-2">
                 <button id="btnStudent" class="flex-1 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">學生模式</button>
                 <button id="btnAnswer" class="flex-1 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">顯示答案</button>
             </div>
-            
-            <div id="editControls" class="hidden">
-                <button id="btnEdit" class="w-full bg-amber-500 text-white py-2 rounded mb-2 font-bold hover:bg-amber-600">返回編輯模式</button>
-                <button id="btnReset" class="w-full bg-red-500 text-white py-2 rounded mb-2 font-bold hover:bg-red-600">重置遊戲</button>
-            </div>
-            
             <button id="btnPrint" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">列印為 PDF</button>
         </div>
 
+        <!-- 網格區域 -->
         <div class="flex-1 bg-white p-6 rounded-xl shadow-lg poster-container">
-            <h1 class="text-2xl font-bold mb-4 text-center">文字搜索海報</h1>
+            <h1 class="text-2xl font-bold mb-4 text-center">聖言搜索海報</h1>
             <div id="gridBody" class="grid w-full gap-0" style="grid-template-columns: repeat(30, minmax(0, 1fr));"></div>
         </div>
     </div>
@@ -57,56 +39,71 @@
     <script>
         const SIZE = 30;
         let matrix = Array(SIZE).fill(null).map(() => Array(SIZE).fill(""));
-        let answerMap = new Map();
-        let foundWords = new Set();
-        let wordList = [];
-        let currentIndex = 0;
+        let answers = new Set();
         let showAns = false;
-        let isStudentMode = false;
 
+        // 監聽輸入框變化以更新總數
         document.getElementById('wordInput').addEventListener('input', updateWordCount);
 
         function updateWordCount() {
             const input = document.getElementById('wordInput').value;
-            wordList = input.split(/[\s\n\r\t]+/).map(i => i.replace(/[^\u4e00-\u9fa5]/g, '')).filter(w => w.length > 0);
-            document.getElementById('wordCount').innerText = `已輸入詞彙總數: ${wordList.length}`;
+            const words = input.split(/[\s\n\r\t]+/)
+                .map(item => item.replace(/[^\u4e00-\u9fa5]/g, ''))
+                .filter(w => w.length > 0);
+            document.getElementById('wordCount').innerText = `已輸入詞彙總數: ${words.length}`;
+        }
+
+        function isSafe(r, c) {
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (answers.has(`${r + dr},${c + dc}`)) return false;
+                }
+            }
+            return true;
         }
 
         function generateGrid() {
-            updateWordCount();
+            const input = document.getElementById('wordInput').value;
+            const words = input.split(/[\s\n\r\t]+/)
+                .map(item => item.replace(/[^\u4e00-\u9fa5]/g, ''))
+                .filter(w => w.length > 0);
+            
             matrix = Array(SIZE).fill(null).map(() => Array(SIZE).fill(""));
-            answerMap.clear();
-            foundWords.clear();
-            wordList.sort((a, b) => b.length - a.length);
+            answers.clear();
 
-            wordList.forEach(word => {
+            words.forEach(word => {
                 let placed = false;
-                for(let attempts = 0; attempts < 2000 && !placed; attempts++) {
-                    const dr = Math.random() > 0.5 ? 1 : 0;
-                    const dc = dr === 1 ? (Math.random() > 0.5 ? 1 : 0) : 1;
-                    let r = Math.floor(Math.random() * SIZE), c = Math.floor(Math.random() * SIZE);
-                    
+                let attempts = 0;
+                while(!placed && attempts < 500) {
+                    const isDiagonal = Math.random() > 0.5;
+                    let r = Math.floor(Math.random() * SIZE);
+                    let c = Math.floor(Math.random() * SIZE);
                     let canPlace = true;
+                    let path = [];
                     for(let i=0; i<word.length; i++) {
-                        let nr = r + i*dr, nc = c + i*dc;
-                        if(nr >= SIZE || nc >= SIZE || (matrix[nr][nc] !== "" && matrix[nr][nc] !== word[i])) { canPlace = false; break; }
-                    }
-                    if(canPlace) {
-                        let coords = [];
-                        for(let i=0; i<word.length; i++) {
-                            matrix[r + i*dr][c + i*dc] = word[i];
-                            coords.push(`${r + i*dr},${c + i*dc}`);
+                        let currR = isDiagonal ? r + i : r;
+                        let currC = isDiagonal ? c + i : c + i;
+                        if (currR >= SIZE || currC >= SIZE || !isSafe(currR, currC)) {
+                            canPlace = false;
+                            break;
                         }
-                        answerMap.set(word, coords);
+                        path.push({r: currR, c: currC});
+                    }
+                    if (canPlace) {
+                        path.forEach((p, i) => {
+                            matrix[p.r][p.c] = word[i];
+                            answers.add(`${p.r},${p.c}`);
+                        });
                         placed = true;
                     }
+                    attempts++;
                 }
             });
 
-            const pool = "基督真理道路生命聖徒平安喜樂啟示福音信實公義創造救贖憐憫盼望溫柔忍耐良善節制智慧正直誠實寬容謙卑";
+            const chars = "神愛世人恩典真理道路生命聖徒平安喜樂啟示福音信實公義";
             for(let r=0; r<SIZE; r++) {
                 for(let c=0; c<SIZE; c++) {
-                    if(matrix[r][c] === "") matrix[r][c] = pool[Math.floor(Math.random() * pool.length)];
+                    if(matrix[r][c] === "") matrix[r][c] = chars[Math.floor(Math.random() * chars.length)];
                 }
             }
             render();
@@ -118,85 +115,20 @@
             for(let r=0; r<SIZE; r++) {
                 for(let c=0; c<SIZE; c++) {
                     const div = document.createElement('div');
-                    div.className = "grid-cell text-[6px] md:text-sm";
+                    // 字體從 text-[6px] 調整為 text-[8px]
+                    div.className = "grid-cell text-[8px] md:text-base";
                     div.innerText = matrix[r][c];
-                    div.dataset.coord = `${r},${c}`;
-                    
-                    if(isStudentMode) {
-                        div.onclick = () => handleCellClick(`${r},${c}`);
-                    }
-                    
-                    if(showAns) {
-                        for(let coords of answerMap.values()) {
-                            if(coords.includes(`${r},${c}`)) div.classList.add('target');
-                        }
-                    }
+                    if(showAns && answers.has(`${r},${c}`)) div.classList.add('target');
                     body.appendChild(div);
                 }
             }
-            applyFoundStyles();
         }
 
-        function handleCellClick(coord) {
-            if(!isStudentMode || currentIndex >= wordList.length) return;
-            const targetWord = wordList[currentIndex];
-            if(answerMap.has(targetWord) && answerMap.get(targetWord).includes(coord)) {
-                foundWords.add(targetWord);
-                currentIndex++;
-                updateTarget();
-                applyFoundStyles();
-            }
-        }
-
-        function applyFoundStyles() {
-            document.querySelectorAll('.grid-cell').forEach(div => {
-                const coord = div.dataset.coord;
-                for(let word of foundWords) {
-                    if(answerMap.has(word) && answerMap.get(word).includes(coord)) div.classList.add('found');
-                }
-            });
-        }
-
-        function updateTarget() {
-            if(currentIndex < wordList.length) {
-                document.getElementById('currentTarget').innerText = wordList[currentIndex];
-                document.getElementById('progress').innerText = `目標: ${currentIndex + 1} / ${wordList.length}`;
-            } else {
-                document.getElementById('currentTarget').innerText = "🎉 全數完成！";
-                document.getElementById('progress').innerText = "已完成所有搜索";
-            }
-        }
-
-        document.getElementById('btnStudent').onclick = () => {
-            isStudentMode = true;
-            document.getElementById('inputGroup').classList.add('hidden');
-            document.getElementById('editControls').classList.remove('hidden');
-            document.getElementById('targetBar').classList.remove('hidden');
-            updateTarget();
-            render();
-        };
-
-        document.getElementById('btnReset').onclick = () => {
-            currentIndex = 0;
-            foundWords.clear();
-            updateTarget();
-            render();
-        };
-
-        document.getElementById('btnGenerate').onclick = () => {
-            currentIndex = 0;
-            generateGrid();
-        };
-
-        document.getElementById('btnEdit').onclick = () => { 
-            isStudentMode = false;
-            document.getElementById('inputGroup').classList.remove('hidden'); 
-            document.getElementById('editControls').classList.add('hidden'); 
-            document.getElementById('targetBar').classList.add('hidden'); 
-            render();
-        };
-        document.getElementById('btnAnswer').onclick = () => { showAns = !showAns; render(); };
+        document.getElementById('btnGenerate').onclick = generateGrid;
+        document.getElementById('btnStudent').onclick = () => { showAns = false; render(); };
+        document.getElementById('btnAnswer').onclick = () => { showAns = true; render(); };
         document.getElementById('btnPrint').onclick = () => window.print();
+        
         generateGrid();
     </script>
 </body>
