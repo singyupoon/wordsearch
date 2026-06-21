@@ -1,5 +1,7 @@
 聖言搜索海報生成器 (Word Search Generator)
 
+https://singyupoon.github.io/wordsearch/index.html
+
 旨在快速生成 30x30 高難度聖經關鍵詞搜索海報。透過這個工具，活動籌備人員可以輕鬆生成具有挑戰性且充滿屬靈啟示的文字矩陣。
 
 🛠 功能特色
