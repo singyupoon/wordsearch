@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -61,9 +60,19 @@
         let answerMap = new Map();
         let foundWords = new Set();
         let wordList = [];
+        let shuffledList = []; // 新增用於隨機排序
         let currentIndex = 0;
         let showAns = false;
         let isStudentMode = false;
+
+        // Fisher-Yates 洗牌演算法
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
 
         document.getElementById('wordInput').addEventListener('input', updateWordCount);
 
@@ -139,8 +148,8 @@
         }
 
         function handleCellClick(coord) {
-            if(!isStudentMode || currentIndex >= wordList.length) return;
-            const targetWord = wordList[currentIndex];
+            if(!isStudentMode || currentIndex >= shuffledList.length) return;
+            const targetWord = shuffledList[currentIndex];
             if(answerMap.has(targetWord) && answerMap.get(targetWord).includes(coord)) {
                 foundWords.add(targetWord);
                 currentIndex++;
@@ -159,9 +168,9 @@
         }
 
         function updateTarget() {
-            if(currentIndex < wordList.length) {
-                document.getElementById('currentTarget').innerText = wordList[currentIndex];
-                document.getElementById('progress').innerText = `目標: ${currentIndex + 1} / ${wordList.length}`;
+            if(currentIndex < shuffledList.length) {
+                document.getElementById('currentTarget').innerText = shuffledList[currentIndex];
+                document.getElementById('progress').innerText = `目標: ${currentIndex + 1} / ${shuffledList.length}`;
             } else {
                 document.getElementById('currentTarget').innerText = "🎉 全數完成！";
                 document.getElementById('progress').innerText = "已完成所有搜索";
@@ -170,9 +179,14 @@
 
         document.getElementById('btnStudent').onclick = () => {
             isStudentMode = true;
+            showAns = false; // 強制隱藏答案
+            shuffledList = shuffle([...wordList]); // 每次進入學生模式都重新打亂順序
+            currentIndex = 0;
+            
             document.getElementById('inputGroup').classList.add('hidden');
             document.getElementById('editControls').classList.remove('hidden');
             document.getElementById('targetBar').classList.remove('hidden');
+            
             updateTarget();
             render();
         };
@@ -180,6 +194,7 @@
         document.getElementById('btnReset').onclick = () => {
             currentIndex = 0;
             foundWords.clear();
+            shuffledList = shuffle([...wordList]); // 重置時重新打亂
             updateTarget();
             render();
         };
@@ -196,7 +211,12 @@
             document.getElementById('targetBar').classList.add('hidden'); 
             render();
         };
-        document.getElementById('btnAnswer').onclick = () => { showAns = !showAns; render(); };
+        
+        document.getElementById('btnAnswer').onclick = () => { 
+            showAns = !showAns; 
+            render(); 
+        };
+        
         document.getElementById('btnPrint').onclick = () => window.print();
         generateGrid();
     </script>
