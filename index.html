@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文字搜索海報生成器</title>
+    <title>文字搜索遊戲</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -21,12 +20,13 @@
 <body class="bg-gray-100 p-4">
     <div class="max-w-6xl mx-auto flex flex-col md:flex-row gap-6">
         <div class="no-print w-full md:w-80 bg-white p-6 rounded-xl shadow-lg h-fit">
-            <h2 class="text-xl font-bold mb-4">⚙️ 文字搜索設定</h2>
+            <h2 class="text-xl font-bold mb-4">⚙️ 遊戲設定</h2>
             <div id="wordCount" class="text-sm text-gray-600 mb-4 font-medium">已輸入詞彙總數: 0</div>
             
             <div id="inputGroup">
                 <textarea id="wordInput" class="w-full h-40 p-2 border rounded text-sm mb-2" placeholder="請輸入答案 (空格或換行分隔)"></textarea>
-                <button id="btnGenerate" class="w-full bg-blue-600 text-white py-2 rounded mb-2 font-bold hover:bg-blue-700">生成海報</button>
+                <button id="btnStartGame" class="w-full bg-green-600 text-white py-2 rounded mb-1 font-bold hover:bg-green-700">開始遊戲</button>
+                <p class="text-xs text-center text-gray-500 mb-2 italic">(將會重置遊戲)</p>
             </div>
 
             <div id="targetBar" class="hidden mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg text-center">
@@ -36,8 +36,8 @@
             </div>
 
             <div class="flex gap-2 mb-2">
-                <button id="btnStudent" class="flex-1 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">學生模式</button>
-                <button id="btnAnswer" class="flex-1 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">顯示答案</button>
+                <button id="btnAnswer" class="hidden flex-1 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">顯示答案</button>
+                <button id="btnToggleMode" class="hidden flex-1 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700">遊戲模式</button>
             </div>
             
             <div id="editControls" class="hidden">
@@ -45,11 +45,11 @@
                 <button id="btnReset" class="w-full bg-red-500 text-white py-2 rounded mb-2 font-bold hover:bg-red-600">重置遊戲</button>
             </div>
             
-            <button id="btnPrint" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">列印為 PDF</button>
+            <button id="btnPrint" class="w-full bg-gray-800 text-white py-2 rounded font-bold hover:bg-gray-900">列印為練習單</button>
         </div>
 
         <div class="flex-1 bg-white p-6 rounded-xl shadow-lg poster-container">
-            <h1 class="text-2xl font-bold mb-4 text-center">文字搜索海報</h1>
+            <h1 class="text-2xl font-bold mb-4 text-center">文字搜索遊戲</h1>
             <div id="gridBody" class="grid w-full gap-0" style="grid-template-columns: repeat(30, minmax(0, 1fr));"></div>
         </div>
     </div>
@@ -60,12 +60,11 @@
         let answerMap = new Map();
         let foundWords = new Set();
         let wordList = [];
-        let shuffledList = []; // 新增用於隨機排序
+        let shuffledList = []; 
         let currentIndex = 0;
         let showAns = false;
         let isStudentMode = false;
 
-        // Fisher-Yates 洗牌演算法
         function shuffle(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -82,7 +81,7 @@
             document.getElementById('wordCount').innerText = `已輸入詞彙總數: ${wordList.length}`;
         }
 
-        function generateGrid() {
+        function generateData() {
             updateWordCount();
             matrix = Array(SIZE).fill(null).map(() => Array(SIZE).fill(""));
             answerMap.clear();
@@ -91,20 +90,23 @@
 
             wordList.forEach(word => {
                 let placed = false;
-                for(let attempts = 0; attempts < 2000 && !placed; attempts++) {
-                    const dr = Math.random() > 0.5 ? 1 : 0;
-                    const dc = dr === 1 ? (Math.random() > 0.5 ? 1 : 0) : 1;
+                for(let attempts = 0; attempts < 3000 && !placed; attempts++) {
+                    const directions = [[0,1], [1,0], [1,1], [1,-1]];
+                    const [dr, dc] = directions[Math.floor(Math.random() * directions.length)];
+                    const reverse = Math.random() > 0.5;
+                    const displayWord = reverse ? word.split('').reverse().join('') : word;
+                    
                     let r = Math.floor(Math.random() * SIZE), c = Math.floor(Math.random() * SIZE);
                     
                     let canPlace = true;
-                    for(let i=0; i<word.length; i++) {
+                    for(let i=0; i<displayWord.length; i++) {
                         let nr = r + i*dr, nc = c + i*dc;
-                        if(nr >= SIZE || nc >= SIZE || (matrix[nr][nc] !== "" && matrix[nr][nc] !== word[i])) { canPlace = false; break; }
+                        if(nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE || (matrix[nr][nc] !== "" && matrix[nr][nc] !== displayWord[i])) { canPlace = false; break; }
                     }
                     if(canPlace) {
                         let coords = [];
-                        for(let i=0; i<word.length; i++) {
-                            matrix[r + i*dr][c + i*dc] = word[i];
+                        for(let i=0; i<displayWord.length; i++) {
+                            matrix[r + i*dr][c + i*dc] = displayWord[i];
                             coords.push(`${r + i*dr},${c + i*dc}`);
                         }
                         answerMap.set(word, coords);
@@ -118,6 +120,26 @@
                 for(let c=0; c<SIZE; c++) {
                     if(matrix[r][c] === "") matrix[r][c] = pool[Math.floor(Math.random() * pool.length)];
                 }
+            }
+        }
+
+        function toggleGameMode() {
+            isStudentMode = !isStudentMode;
+            showAns = false;
+            
+            if (isStudentMode) {
+                document.getElementById('targetBar').classList.remove('hidden');
+                document.getElementById('editControls').classList.remove('hidden');
+                document.getElementById('inputGroup').classList.add('hidden');
+                document.getElementById('btnToggleMode').classList.add('hidden');
+                document.getElementById('btnAnswer').classList.add('hidden');
+                updateTarget();
+            } else {
+                document.getElementById('targetBar').classList.add('hidden');
+                document.getElementById('editControls').classList.add('hidden');
+                document.getElementById('inputGroup').classList.remove('hidden');
+                document.getElementById('btnToggleMode').classList.remove('hidden');
+                document.getElementById('btnAnswer').classList.remove('hidden');
             }
             render();
         }
@@ -168,57 +190,49 @@
         }
 
         function updateTarget() {
-            if(currentIndex < shuffledList.length) {
-                document.getElementById('currentTarget').innerText = shuffledList[currentIndex];
-                document.getElementById('progress').innerText = `目標: ${currentIndex + 1} / ${shuffledList.length}`;
+            if (foundWords.size < wordList.length) {
+                const currentTargetWord = shuffledList[currentIndex];
+                document.getElementById('currentTarget').innerText = currentTargetWord;
+                document.getElementById('progress').innerText = `進度: ${foundWords.size} / ${wordList.length}`;
             } else {
-                document.getElementById('currentTarget').innerText = "🎉 全數完成！";
-                document.getElementById('progress').innerText = "已完成所有搜索";
+                document.getElementById('targetBar').innerHTML = `<div class="text-2xl font-bold text-green-600 p-4">🎉 恭喜你已成功找出所有答案！</div>`;
             }
         }
 
-        document.getElementById('btnStudent').onclick = () => {
-            isStudentMode = true;
-            showAns = false; // 強制隱藏答案
-            shuffledList = shuffle([...wordList]); // 每次進入學生模式都重新打亂順序
-            currentIndex = 0;
-            
-            document.getElementById('inputGroup').classList.add('hidden');
-            document.getElementById('editControls').classList.remove('hidden');
-            document.getElementById('targetBar').classList.remove('hidden');
-            
-            updateTarget();
-            render();
-        };
-
-        document.getElementById('btnReset').onclick = () => {
+        document.getElementById('btnStartGame').onclick = () => {
+            generateData();
+            shuffledList = shuffle([...wordList]);
             currentIndex = 0;
             foundWords.clear();
-            shuffledList = shuffle([...wordList]); // 重置時重新打亂
+            toggleGameMode();
+        };
+        
+        document.getElementById('btnToggleMode').onclick = toggleGameMode;
+        
+        // 改進後的重置功能：重新呼叫 generateData 以產生全新海報
+        document.getElementById('btnReset').onclick = () => {
+            generateData(); 
+            currentIndex = 0;
+            foundWords.clear();
+            shuffledList = shuffle([...wordList]);
+            document.getElementById('targetBar').innerHTML = `
+                <div class="text-xs text-blue-500 font-bold uppercase">當前搜尋目標</div>
+                <div id="currentTarget" class="text-3xl font-bold text-blue-800 my-2">--</div>
+                <div id="progress" class="text-sm text-blue-600">進度: 0 / 0</div>
+            `;
             updateTarget();
             render();
         };
 
-        document.getElementById('btnGenerate').onclick = () => {
-            currentIndex = 0;
-            generateGrid();
-        };
-
-        document.getElementById('btnEdit').onclick = () => { 
-            isStudentMode = false;
-            document.getElementById('inputGroup').classList.remove('hidden'); 
-            document.getElementById('editControls').classList.add('hidden'); 
-            document.getElementById('targetBar').classList.add('hidden'); 
-            render();
-        };
-        
+        document.getElementById('btnEdit').onclick = toggleGameMode;
         document.getElementById('btnAnswer').onclick = () => { 
             showAns = !showAns; 
+            if(showAns) {
+                document.getElementById('btnToggleMode').classList.remove('hidden'); 
+            }
             render(); 
         };
-        
         document.getElementById('btnPrint').onclick = () => window.print();
-        generateGrid();
     </script>
 </body>
 </html>
